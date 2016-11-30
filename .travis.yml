@@ -2,34 +2,69 @@ language: php
 
 sudo: true
 
+os:
+  - linux
+  - osx
+
 matrix:
     allow_failures:
         - php: nightly
     fast_finish: true
     include:
-        - php: 5.6
+        - os: linux
+          php: 5.6
           env: deps=low
-        - php: 5.6
-        - php: 7.0
-        - php: 7.0
+        - os: linux
+          php: 5.6
+        - os: linux
+          php: 7.0
+        - os: linux
+          php: 7.0
           env: deps=low
-        - php: 7.1
-        - php: hhvm
-        - php: hhvm
+        - os: linux
+          php: 7.1
+        - os: linux
+          php: hhvm
+        - os: linux
+          php: hhvm
           env: deps=low
-        - php: nightly
+        - os: linux
+          php: nightly
+        - os: osx
+            osx_image: xcode7.3
+            language: generic
+            env:
+              - _OSX=10.11
+              - _PHP: php56
+        - os: osx
+            osx_image: xcode7.3
+            language: generic
+            env:
+              - _OSX=10.11
+              - _PHP: php70
+
+before_install:
+    - mkdir -p build/logs
+    - chmod +x ./tests/ci/install_php_ext.sh
+    - chmod +x ./tests/ci/prepare_osx_env.sh
+    - chmod +x ./tests/ci/handle_brew_pkg.sh
+
+install:
+    - sh -c 'if [ "$WITH_CRYPTO" != "" ]; then pecl install crypto-0.2.2; fi;'
+    - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then /usr/bin/env bash ./tests/ci/handle_brew_pkg.sh "${_PHP}" ; fi
+    - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then /usr/bin/env bash ./tests/ci/prepare_osx_env.sh ; fi
+    - if [ "$TRAVIS_PHP_VERSION" != 'hhvm' ]; then ./tests/ci/install_php_ext.sh; fi
 
 before_script:
     - composer self-update
-    - sh -c 'if [ "$WITH_CRYPTO" != "" ]; then pecl install crypto-0.2.2; fi;'
-    - mkdir -p build/logs
-    - chmod +x tests/ci/install_php_ext.sh
-    - if [ "$TRAVIS_PHP_VERSION" != 'hhvm' ]; then ./tests/ci/install_php_ext.sh; fi
     - if [[ $deps = low ]]; then composer update --no-interaction --prefer-lowest ; fi
     - if [[ !$deps ]]; then composer install --no-interaction ; fi
 
 script:
     - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml
+
+after_success:
+    - vendor/bin/coveralls --no-interaction
     - php ./examples/Encrypt1.php
     - php ./examples/Encrypt2.php
     - php ./examples/Signature1.php
@@ -38,6 +73,3 @@ script:
     - php ./examples/Load2.php
     - php ./examples/Load3.php
     - php ./examples/Load4.php
-
-after_success:
-    - vendor/bin/coveralls --no-interaction
